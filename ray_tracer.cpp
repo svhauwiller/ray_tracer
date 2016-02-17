@@ -27,8 +27,8 @@
 
 #include "ray_tracer.h"
 
-#define MAX_RAY_DEPTH 3
- 
+#define MAX_RAY_DEPTH 2
+
 
 RayTracer::RayTracer(){}
 
@@ -52,7 +52,7 @@ void RayTracer::run(){
     for (int y = 0; y < this->scene_->getHeightResolution(); y++) {
         for (int x = 0; x < this->scene_->getWidthResolution(); x++) {
             Ray* primary_ray = generatePrimaryRay(x, y);
-            RgbColor pixel_color = trace(primary_ray, 0);
+            RgbColor pixel_color = trace(primary_ray, 1);
             
             //Note: Output to the file is a give and take situation
             //We can write the image data to MEMORY and write to DISK with a fast computation time
@@ -199,6 +199,26 @@ bool RayTracer::computeShadowRay(Point3D* nearest_point, Light* casting_light){
 }
 
 /**
+ * Computes a reflection ray based on the direction the original ray was cast in
+ * and returns the color data at the end of the reflection ray
+ * 
+ * @param ray Original ray cast for which reflection needs to be computed
+ * @param nearest_point Point in 3D space where the ray intersected the geometry
+ * @param normal_at_nearest_point Normal at the point intersected by the ray
+ * @param depth_level Current level of recursive ray casting
+ * @return Color intersected by the reflection ray
+ */
+RgbColor RayTracer::computeReflection(Ray* ray, Point3D* nearest_point, Vector3D* normal_at_nearest_point, int depth_level){
+    Vector3D direction_to_eye(-ray->getDirection()->getX(), -ray->getDirection()->getY(), -ray->getDirection()->getZ()); 
+    double a = std::max(0.0, normal_at_nearest_point->dot(&direction_to_eye));
+    Vector3D reflection_direction = ((*normal_at_nearest_point * 2) * a) - direction_to_eye;
+    Ray* reflection_ray = new Ray(new Point3D(nearest_point->getX(), nearest_point->getY(), nearest_point->getZ()), 
+                                  new Vector3D(reflection_direction.getX(), reflection_direction.getY(), reflection_direction.getZ()));
+    
+    return trace(reflection_ray, depth_level + 1);
+}
+
+/**
  * Computes the color of the pixel based on the Phong Lighting Model
  * <https://en.wikipedia.org/wiki/Phong_reflection_model>
  * 
@@ -214,10 +234,15 @@ bool RayTracer::computeShadowRay(Point3D* nearest_point, Light* casting_light){
  * @param ray Ray being cast from the camera
  * @param nearest_point Point in 3D space where the ray intersected the geometry
  * @param normal_at_nearest_point Normal at the point intersected by the ray
+ * @param depth_level Current level of recursive ray casting
  * @return Color of the pixel
  */
-RgbColor RayTracer::computePhongLightingModel(Geometry* nearest_geometry, Ray* ray, Point3D* nearest_point, Vector3D* normal_at_nearest_point){
+RgbColor RayTracer::computePhongLightingModel(Geometry* nearest_geometry, Ray* ray, Point3D* nearest_point, Vector3D* normal_at_nearest_point, int depth_level){
     RgbColor pixel_color(0,0,0);
+    
+    if(nearest_geometry->hasReflection() && depth_level <= MAX_RAY_DEPTH){
+        pixel_color = nearest_geometry->getReflectiveColor() * computeReflection(ray, nearest_point, normal_at_nearest_point, depth_level);
+    }
     
     for (int i = 0; i < this->scene_->getLightListSize(); i++) {
         if(this->scene_->getLightAt(i)->getType() == 0){ //Is Ambient
@@ -247,11 +272,11 @@ RgbColor RayTracer::computePhongLightingModel(Geometry* nearest_geometry, Ray* r
  * Computes the color data of the pixel based on the ray cast
  * 
  * @param ray Ray to compute intersections and color data by
- * @param depth Maximum number of additional rays that may be cast by this ray
+ * @param depth_level Current level of recursive ray casting
  * @return Color data of the pixel
  */
-RgbColor RayTracer::trace(Ray* ray, int depth)
-{
+RgbColor RayTracer::trace(Ray* ray, int depth_level)
+{    
     Point3D nearest_point (0,0,0);
     Vector3D normal_at_nearest_point (1,1,1);
     Geometry* nearest_geometry = computeNearestIntersection(ray, &nearest_point, &normal_at_nearest_point);
@@ -267,7 +292,7 @@ RgbColor RayTracer::trace(Ray* ray, int depth)
             pixel_color = nearest_geometry->getDiffuseColor();
             break;
         case 1: //Phong Shader
-            pixel_color = computePhongLightingModel(nearest_geometry, ray, &nearest_point, &normal_at_nearest_point);
+            pixel_color = computePhongLightingModel(nearest_geometry, ray, &nearest_point, &normal_at_nearest_point, depth_level);
             break;           
     }
     pixel_color.correctOverflow();

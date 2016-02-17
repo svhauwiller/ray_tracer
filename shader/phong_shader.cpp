@@ -25,6 +25,11 @@
 #include "phong_shader.h"
 
 PhongShader::PhongShader() {
+    this->diffuse_color_ = RgbColor(0,0,0);
+    this->specular_highlight_ = RgbColor(0,0,0);
+    this->reflective_color_ = RgbColor(0,0,0);
+    this->phong_constant_ = 2;
+    this->refraction_index_ = 1.33;
 }
 
 PhongShader::PhongShader(const PhongShader& orig) {

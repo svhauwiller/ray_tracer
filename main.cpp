@@ -42,10 +42,11 @@ using namespace std;
 /**
  * Adds a list of static geometry to the scene
  * 
- * List of Geometry (2/2/2016)
+ * List of Geometry (2/17/2016)
  * 1: Sphere centered at (-0.6, 0, 0) with a radius of 0.3
  * 2: Sphere centered at (0.2, 0, 0) with a radius of 0.075
  * 3: Sphere centered at (0.35, 0, 0) with a radius of 0.05
+ * 4: Sphere centered at (-0.3, 0.1, 0.2) with a radius of 0.075
  * 
  * @param scene Pointer to the scene description to be appended to
  */
@@ -56,6 +57,7 @@ void addGeometry(Scene* scene){
     sphere1->setDiffuseColor(RgbColor(0, 255, 0));
     sphere1->setSpecularHighlight(RgbColor(255, 255, 255));
     sphere1->setPhongConstant(32);
+    sphere1->setReflectiveColor(RgbColor(255,255,255));
     scene->addGeo(sphere1);
     
     PhongShader* shader2 = new PhongShader();
@@ -70,6 +72,13 @@ void addGeometry(Scene* scene){
     sphere3->setDiffuseColor(RgbColor(255, 255, 255));
     scene->addGeo(sphere3);
    
+    PhongShader* shader4 = new PhongShader();
+    Sphere* sphere4 = new Sphere(new Point3D(-0.3, 0.1, 0.2), 0.075, shader4);
+    sphere4->setDiffuseColor(RgbColor(255, 0, 255));
+    sphere4->setSpecularHighlight(RgbColor(255, 255, 255));
+    sphere4->setPhongConstant(32);
+    scene->addGeo(sphere4);
+    
 }
 
 /**
