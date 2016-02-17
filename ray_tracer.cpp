@@ -170,17 +170,18 @@ Geometry* RayTracer::computeNearestIntersection(Ray* ray, Point3D* nearest_point
 /**
  * Generates a flag based on whether the point is in shadow or not.
  * 
- * @param nearest_point Point in 3D space to test
+ * @param nearest_point Point in 3D space to test whether it is in shadow
+ * @param casting_light Pointer to the light casting the shadow
  * @return Flag determining if the point is in shadow or not
  */
-bool RayTracer::computeShadowRay(Point3D* nearest_point){
+bool RayTracer::computeShadowRay(Point3D* nearest_point, Light* casting_light){
     int shadow_flag = 0;
     
-    Vector3D direction_to_light1 = this->scene_->getLightAt(1)->getDirectionToLight();
-    Ray* shadow_ray = new Ray(new Point3D(nearest_point->getX() + (direction_to_light1.getX() * FLT_EPSILON), 
-                                          nearest_point->getY() + (direction_to_light1.getY() * FLT_EPSILON), 
-                                          nearest_point->getZ() + (direction_to_light1.getZ() * FLT_EPSILON)), 
-                             new Vector3D(direction_to_light1.getX(), direction_to_light1.getY(), direction_to_light1.getZ()));
+    Vector3D direction_to_light = casting_light->getDirectionToLight();
+    Ray* shadow_ray = new Ray(new Point3D(nearest_point->getX() + (direction_to_light.getX() * FLT_EPSILON), 
+                                          nearest_point->getY() + (direction_to_light.getY() * FLT_EPSILON), 
+                                          nearest_point->getZ() + (direction_to_light.getZ() * FLT_EPSILON)), 
+                             new Vector3D(direction_to_light.getX(), direction_to_light.getY(), direction_to_light.getZ()));
   
     Point3D point_hit_noop (0,0,0);
     Vector3D normal_hit_noop (1,1,1);
@@ -211,30 +212,35 @@ bool RayTracer::computeShadowRay(Point3D* nearest_point){
  * 
  * @param nearest_geometry Geometry object containing the color information
  * @param ray Ray being cast from the camera
+ * @param nearest_point Point in 3D space where the ray intersected the geometry
  * @param normal_at_nearest_point Normal at the point intersected by the ray
- * @param shadow_mask A mask identifying which points appear in shadow. 1 is in shadow and 0 is not.
  * @return Color of the pixel
  */
-RgbColor RayTracer::computePhongLightingModel(Geometry* nearest_geometry, Ray* ray, Vector3D* normal_at_nearest_point, bool shadow_mask){
-    RgbColor ambient_light_color(0,0,0);
+RgbColor RayTracer::computePhongLightingModel(Geometry* nearest_geometry, Ray* ray, Point3D* nearest_point, Vector3D* normal_at_nearest_point){
+    RgbColor pixel_color(0,0,0);
+    
     for (int i = 0; i < this->scene_->getLightListSize(); i++) {
         if(this->scene_->getLightAt(i)->getType() == 0){ //Is Ambient
-            ambient_light_color = ambient_light_color + this->scene_->getLightAt(i)->getColor();  
+            RgbColor ambient_color = nearest_geometry->getDiffuseColor() * this->scene_->getLightAt(i)->getColor();
+            pixel_color = pixel_color + ambient_color; 
+        } else if (this->scene_->getLightAt(i)->getType() == 1) { // Is Directional
+            bool shadow_mask = computeShadowRay(nearest_point, this->scene_->getLightAt(i));
+            
+            Vector3D direction_to_light = this->scene_->getLightAt(i)->getDirectionToLight();
+
+            double a = std::max(0.0, normal_at_nearest_point->dot(&direction_to_light));
+            Vector3D reflection_direction = ((*normal_at_nearest_point * 2) * a) - direction_to_light;
+            Vector3D direction_to_eye = ray->getInverseDirection();
+            double b = std::max(0.0, direction_to_eye.dot(&reflection_direction));
+
+            RgbColor diffuse_color = (this->scene_->getLightAt(1)->getColor() * (nearest_geometry->getDiffuseColor() * a)) * !shadow_mask;
+            RgbColor specular_color = (this->scene_->getLightAt(1)->getColor() * ((nearest_geometry->getSpecularHighlight() * b) ^ nearest_geometry->getPhongConstant())) * !shadow_mask;
+        
+            pixel_color = pixel_color + diffuse_color + specular_color;
         }
     }
 
-    Vector3D direction_to_light1 = this->scene_->getLightAt(1)->getDirectionToLight();
-    
-    double a = std::max(0.0, normal_at_nearest_point->dot(&direction_to_light1));
-    Vector3D reflection_direction = ((*normal_at_nearest_point * 2) * a) - direction_to_light1;
-    Vector3D direction_to_eye = ray->getInverseDirection();
-    double b = std::max(0.0, direction_to_eye.dot(&reflection_direction));
-
-    RgbColor ambient_color = (nearest_geometry->getDiffuseColor() * ambient_light_color); 
-    RgbColor diffuse_color = (this->scene_->getLightAt(1)->getColor() * (nearest_geometry->getDiffuseColor() * a)) * !shadow_mask;
-    RgbColor specular_color = (this->scene_->getLightAt(1)->getColor() * ((nearest_geometry->getSpecularHighlight() * b) ^ nearest_geometry->getPhongConstant())) * !shadow_mask;
-    
-    return ambient_color + diffuse_color + specular_color;
+    return pixel_color;
 }
 
 /**
@@ -254,17 +260,15 @@ RgbColor RayTracer::trace(Ray* ray, int depth)
         delete ray;
         return this->scene_->getBackgroundColor();
     }
-    
-    bool shadow_flag = computeShadowRay(&nearest_point); 
-    
+ 
     RgbColor pixel_color;
     switch(nearest_geometry->getShaderType()){
         case 0: //Constant Shader
             pixel_color = nearest_geometry->getDiffuseColor();
             break;
         case 1: //Phong Shader
-            pixel_color = computePhongLightingModel(nearest_geometry, ray, &normal_at_nearest_point, shadow_flag);
-            break;
+            pixel_color = computePhongLightingModel(nearest_geometry, ray, &nearest_point, &normal_at_nearest_point);
+            break;           
     }
     pixel_color.correctOverflow();
     

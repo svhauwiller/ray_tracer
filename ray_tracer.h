@@ -61,8 +61,8 @@ public:
     Ray* generatePrimaryRay(double x, double y);
     
     Geometry* computeNearestIntersection(Ray* ray, Point3D* nearest_point, Vector3D* normal_at_nearest_point);
-    bool computeShadowRay(Point3D* nearest_point);
-    RgbColor computePhongLightingModel(Geometry* nearest_geometry, Ray* ray, Vector3D* normal_at_nearest_point, bool shadow_mask);
+    bool computeShadowRay(Point3D* nearest_point, Light* casting_light);
+    RgbColor computePhongLightingModel(Geometry* nearest_geometry, Ray* ray, Point3D* nearest_point, Vector3D* normal_at_nearest_point);  
     RgbColor trace(Ray* ray, int depth);
     
 private:

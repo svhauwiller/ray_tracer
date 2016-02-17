@@ -75,10 +75,12 @@ void addGeometry(Scene* scene){
 /**
  * Adds a list of lights to the scene
  * 
- * List of Lights (2/2/2016)
+ * List of Lights (2/16/2016)
  * 1: Ambient Light with an 8-bit color of Dark Grey (25.5, 25.5, 25.5)
  * 2: Directional Light with an 8-bit color of Pure White (255, 255, 255) 
  *       directed down the negative X-axis (-1, 0, 0)
+ * 3: Directional Light with an 8-bit color of Pure White (255, 255, 255) 
+ *       directed down the negative Y-axis (0, -1, 0)
  * 
  * @param scene Pointer to the scene description to be appended to
  */
@@ -88,6 +90,9 @@ void addLights(Scene* scene){
 
     DirectionalLight* directional_light1 = new DirectionalLight(RgbColor(255,255,255), new Vector3D(-1,0,0));
     scene->addLight(directional_light1);
+    
+    DirectionalLight* directional_light2 = new DirectionalLight(RgbColor(255,255,255), new Vector3D(0,-1,0));
+    scene->addLight(directional_light2);
 }
 
 /**
